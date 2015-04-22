@@ -1,0 +1,35 @@
+{
+  "name": "json-commander",
+  "version": "0.0.0",
+  "description": "Commands generator for the update of json documents",
+  "author": {
+    "name": "Olivier Huin",
+    "email": "npm.olivier.huin@flarebyte.com"
+  },
+  "repository": "flarebyte/json-commander",
+  "license": "MIT",
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "json-commander",
+    ""
+  ],
+  "dependencies": {
+    "joi": "^6.2.0",
+    "lodash": "^3.7.0"
+  },
+  "devDependencies": {
+    "grunt-cli": "^0.1.13",
+    "grunt-contrib-jshint": "^0.10.0",
+    "grunt-contrib-nodeunit": "^0.4.1",
+    "grunt-contrib-watch": "^0.6.1",
+    "load-grunt-tasks": "^1.0.0",
+    "time-grunt": "^1.0.0",
+    "grunt-mocha-cli": "^1.11.0",
+    "jshint-stylish": "^1.0.0"
+  },
+  "scripts": {
+    "test": "grunt"
+  }
+}
