@@ -5,10 +5,12 @@
   "properties": {
     "name": {
       "id": "name",
+      "title": "Name of the library",
       "type": "string"
     },
     "version": {
       "id": "version",
+      "description": "version of the library",
       "type": "string"
     },
     "description": {
@@ -26,6 +28,15 @@
     "license": {
       "id": "license",
       "type": "string"
+    },
+    "anyNumber": {
+      "type": "number"
+    },
+    "anyBoolean": {
+      "type": "boolean"
+    },
+    "anyInteger": {
+      "type": "integer"
     },
     "main": {
       "id": "main",
