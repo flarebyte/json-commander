@@ -232,6 +232,30 @@ module.exports = function(config) {
 
     };
 
+    var createEmpty = function(valueType) {
+        var value = "";
+        switch (valueType) {
+            case 'integer':
+                value = 0;
+                break;
+            case 'number':
+                value = 0;
+                break;
+            case 'string':
+                value = "";
+                break;
+            case 'object':
+                value = {};
+                break;
+            default:
+                throw new Error(valueType + 'not supported!');
+
+        }
+
+        return value;
+
+    };
+
     var setValue = function(jsonData, path, value) {
         var isValid = idPathValid(path);
         if (!isValid) {
@@ -258,8 +282,89 @@ module.exports = function(config) {
 
             setValueForType(jsonData, path, value);
 
+            return jsonData;
+
         }
     };
+
+    var insertRow = function(jsonData, path, position) {
+        var isValid = idPathValid(path);
+        if (!isValid) {
+            return new Error('Given path is not valid');
+        }
+        var valueType = getTypeForPath(path);
+        if (valueType !== 'array') {
+            return new Error('This path is not array but ' + valueType);
+        }
+
+        var previousVal = _.get(jsonData, path);
+        if (_.isEmpty(previousVal)) {
+            previousVal = [];
+        }
+        var max = _.size(previousVal);
+        var min = -max - 1;
+
+        var pos = S(position).toInt();
+
+        var inrange = pos >= min && pos <= max;
+        if (!inrange) {
+            return new Error('Position should be between ' + min + ' and ' + max);
+        }
+        var childType = getTypeForPath(path + "[]");
+        if (pos === -1) {
+            previousVal.push(createEmpty(childType));
+        } else if (pos >= 0) {
+            previousVal.splice(pos, 0, createEmpty(childType));
+        } else if (pos < -1) {
+            previousVal.splice(pos + 1, 0, createEmpty(childType));
+        }
+
+        _.set(jsonData, path, previousVal);
+
+        return jsonData;
+
+    };
+    var copyValue = function(jsonData, pathSrc, pathDest) {
+        var src = getValue(jsonData, pathSrc);
+        if (_.isError(src)) {
+            return src;
+        }
+        var typeSrc = getTypeForPath(pathSrc);
+        var typeDest = getTypeForPath(pathDest);
+
+        if (typeSrc !== typeDest) {
+            return new Error('Source type is different from destination type: ' + typeSrc + ' and ' + typeDest);
+        }
+
+        setValue(jsonData, pathDest, src);
+    };
+
+    var deleteValue = function(jsonData, path) {
+        var isValid = idPathValid(path);
+        if (!isValid) {
+            return new Error('Given path is not valid:' + path);
+        }
+        var parentPath = getParentPath(path);
+        if (_.isNull(parentPath)) {
+            delete jsonData[path];
+        } else {
+            var parentType = getTypeForPath(parentPath);
+            var parentVal = _.get(jsonData, parentPath);
+            if (parentType === 'object') {
+                var childPath = S(path).chompLeft(parentPath + ".");
+                delete parentVal[childPath];
+            } else if (parentType === 'array') {
+                var idx = S(path).chompLeft(parentPath).between('[',']').toInt();
+                _.pullAt(parentVal,idx);
+            }
+
+
+        }
+
+    };
+
+
+
     var commander = {
         schema: schema,
         model: function() {
@@ -269,7 +374,10 @@ module.exports = function(config) {
         isValueValid: isValueValid,
         getParentPath: getParentPath,
         getValue: getValue,
-        setValue: setValue
+        setValue: setValue,
+        insertRow: insertRow,
+        copyValue: copyValue,
+        deleteValue: deleteValue
     };
 
     return commander;

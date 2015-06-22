@@ -16,6 +16,14 @@ var newExample = function() {
     return _.cloneDeep(lodashExample);
 };
 
+var isError = function(value, msg) {
+    assert.isTrue(_.isError(value), msg);
+};
+
+var isNotError = function(value, msg) {
+    assert.isFalse(_.isError(value), msg);
+};
+
 describe('json-commander node module', function() {
     it('must be load schema', function() {
         var cmdr = jsonCommander(basicConf);
@@ -26,7 +34,7 @@ describe('json-commander node module', function() {
     it('must build a model', function() {
         var cmdr = jsonCommander(basicConf);
         var model = cmdr.model();
-        console.log(model);
+        assert.isObject(model);
     });
 
     it('must validate a valid path', function() {
@@ -107,6 +115,129 @@ describe('json-commander node module', function() {
 
         assert.instanceOf(cmdr.setValue(ex, 'sillyAttribute', 'newKeyword'), Error, 'should be error');
         assert.instanceOf(cmdr.setValue(ex, 'contributors[10].name', 'newName'), Error, 'should be error');
+    });
+
+    it('must insert head row', function() {
+        var cmdr = jsonCommander(basicConf);
+        var ex = newExample();
+        var err = cmdr.insertRow(ex, 'contributors', 0);
+        isNotError(err, err);
+        assert.isObject(ex.contributors[0], 'head contributor');
+        assert.isUndefined(ex.contributors[0].name);
+        assert.equal(ex.contributors.length, 6, 'number of contributors');
+
+        cmdr.insertRow(ex, 'keywords', 0);
+        assert.isString(ex.keywords[0], 'head keyword');
+        assert.equal(ex.keywords.length, 4, 'number of keywords');
+        assert.equal(ex.keywords[0], '');
+    });
+
+    it('must insert row in middle of array', function() {
+        var cmdr = jsonCommander(basicConf);
+        var ex = newExample();
+        cmdr.insertRow(ex, 'contributors', 1);
+        assert.isObject(ex.contributors[1], 'head contributor');
+        assert.isUndefined(ex.contributors[1].name);
+        assert.equal(ex.contributors.length, 6, 'number of contributors');
+
+        cmdr.insertRow(ex, 'keywords', 1);
+        assert.isString(ex.keywords[1], 'head keyword');
+        assert.equal(ex.keywords[1], '');
+        assert.equal(ex.keywords.length, 4, 'number of keywords');
+    });
+
+    it('must insert tail row', function() {
+        var cmdr = jsonCommander(basicConf);
+        var ex = newExample();
+        cmdr.insertRow(ex, 'contributors', -1);
+        assert.isObject(ex.contributors[5], 'tail contributor');
+        assert.isUndefined(ex.contributors[5].name);
+        assert.equal(ex.contributors.length, 6, 'number of contributors');
+
+        cmdr.insertRow(ex, 'keywords', -1);
+        assert.isString(ex.keywords[3], 'head keyword');
+        assert.equal(ex.keywords[3], '');
+        assert.equal(ex.keywords.length, 4, 'number of keywords');
+    });
+
+    it('must insert two rows up from the tail', function() {
+        var cmdr = jsonCommander(basicConf);
+        var ex = newExample();
+        cmdr.insertRow(ex, 'contributors', -2);
+        assert.isObject(ex.contributors[4], 'tail contributor');
+        assert.isUndefined(ex.contributors[4].name);
+        assert.equal(ex.contributors.length, 6, 'number of contributors');
+
+        cmdr.insertRow(ex, 'keywords', -2);
+        assert.isString(ex.keywords[2], 'head keyword');
+        assert.equal(ex.keywords[2], '');
+        assert.equal(ex.keywords.length, 4, 'number of keywords');
+    });
+    /*
+    "contributors": [
+      "name": "John-David Dalton",0
+      "name": "Benjamin Tan",1
+      "name": "Blaine Bublitz",2
+      "name": "Kit Cambridge",3
+      "name": "Mathias Bynens",4
+    }
+
+    "keywords": [
+        "modules",0
+        "stdlib",1
+        "util",2
+    ],
+    */
+
+    it('must copy value', function() {
+        var cmdr = jsonCommander(basicConf);
+        var ex = newExample();
+        isNotError(cmdr.copyValue(ex, 'contributors[2]', 'contributors[1]'));
+        assert.equal(ex.contributors.length, 5, 'number of contributors');
+        assert.equal(ex.contributors[0].name, 'John-David Dalton');
+        assert.equal(ex.contributors[1].name, 'Blaine Bublitz');
+        assert.equal(ex.contributors[2].name, 'Blaine Bublitz');
+        assert.equal(ex.contributors[3].name, 'Kit Cambridge');
+        assert.equal(ex.contributors[4].name, 'Mathias Bynens');
+
+        isNotError(cmdr.copyValue(ex, 'keywords[1]', 'keywords[0]'));
+        assert.equal(ex.keywords.length, 3, 'number of keywords');
+        assert.equal(ex.keywords[0], 'stdlib');
+        assert.equal(ex.keywords[1], 'stdlib');
+        assert.equal(ex.keywords[2], 'util');
+
+        isNotError(cmdr.copyValue(ex, 'contributors[4].name', 'keywords[2]'));
+        assert.equal(ex.keywords.length, 3, 'number of keywords');
+        assert.equal(ex.keywords[0], 'stdlib');
+        assert.equal(ex.keywords[1], 'stdlib');
+        assert.equal(ex.keywords[2], 'Mathias Bynens');
+
+    });
+
+    it('must not copy incompatible value', function() {
+        var cmdr = jsonCommander(basicConf);
+        var ex = newExample();
+
+        var err = cmdr.copyValue(ex, 'contributors[4]', 'keywords[2]');
+        isError(err, err);
+
+
+    });
+
+    it('must delete item', function() {
+        var cmdr = jsonCommander(basicConf);
+        var ex = newExample();
+        cmdr.deleteValue(ex, 'name');
+        assert.isUndefined(ex.name);
+
+        cmdr.deleteValue(ex, 'contributors[0].name');
+        assert.isUndefined(ex.contributors[0].name);
+
+        cmdr.deleteValue(ex, 'repository.type');
+        assert.isUndefined(ex.repository.type);
+
+        cmdr.deleteValue(ex, 'keywords[1]');
+        assert.equal(ex.keywords[1],'util');
     });
 
 
