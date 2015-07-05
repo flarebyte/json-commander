@@ -20,8 +20,9 @@ var isError = function(value, msg) {
     assert.isTrue(_.isError(value), msg);
 };
 
-var isNotError = function(value, msg) {
-    assert.isFalse(_.isError(value), msg);
+var isNotError = function(value) {
+    assert.isFalse(_.isError(value), "result should not be an error");
+    assert.isTrue(_.isObject(value) || _.isString(value), "result should be an object or object");
 };
 
 describe('json-commander node module', function() {
@@ -35,6 +36,15 @@ describe('json-commander node module', function() {
         var cmdr = jsonCommander(basicConf);
         var model = cmdr.model();
         assert.isObject(model);
+    });
+
+    it('must produce a model for help', function() {
+        var cmdr = jsonCommander(basicConf);
+        var modelHelp = cmdr.modelHelp();
+        assert.isArray(modelHelp);
+        assert.equal(modelHelp[0], 'anyBoolean (boolean)');
+        assert.equal(modelHelp[10], 'contributors[].name (string)');
+        assert.equal(modelHelp[25], 'version (string): Version of the library.');
     });
 
     it('must validate a valid path', function() {
@@ -237,7 +247,35 @@ describe('json-commander node module', function() {
         assert.isUndefined(ex.repository.type);
 
         cmdr.deleteValue(ex, 'keywords[1]');
-        assert.equal(ex.keywords[1],'util');
+        assert.equal(ex.keywords[1], 'util');
+    });
+
+    it('must evaluate commands', function() {
+        var cmdr = jsonCommander(basicConf);
+        var ex = newExample();
+        isNotError(cmdr.evaluate(ex, ['get', 'contributors[0].name']));
+        isNotError(cmdr.evaluate(ex, ['set', 'keywords[1]', 'newKeyword']));
+        isNotError(cmdr.evaluate(ex, ['copy', 'contributors[1]', 'contributors[2]']));
+        isNotError(cmdr.evaluate(ex, ['insert', 'keywords', '-1']));
+        isNotError(cmdr.evaluate(ex, ['del', 'repository.type']));
+        isNotError(cmdr.evaluate(ex, ['schema']));
+        isNotError(cmdr.evaluate(ex, ['help']));
+        isNotError(cmdr.evaluate(ex, ['all']));
+        isNotError(cmdr.evaluate(ex, ['check']));
+        assert.equal(ex.keywords[1], 'newKeyword');
+        assert.equal(ex.contributors[1], ex.contributors[2]);
+        assert.lengthOf(ex.keywords, 4);
+        assert.isUndefined(ex.repository.type);
+
+        isError(cmdr.evaluate(ex, ['get', 'contributors[0].name', 'unecessary param']));
+        isError(cmdr.evaluate(ex, ['silly', 'contributors[0].name']));
+
+        assert.equal(cmdr.evaluate(ex, ['check']), 'valid');
+        assert.equal(cmdr.evaluate({}, ['check']), 'invalid');
+        assert.equal(cmdr.evaluate(ex, ['all']), ex);
+        assert.equal(cmdr.evaluate(ex, ['help'])[0], 'all: get the whole configuration');
+
+
     });
 
 

@@ -3,8 +3,7 @@ var Joi = require('joi');
 var fs = require('fs-extra');
 var _ = require('lodash');
 var S = require('string');
-
-//var validator = require('is-my-json-valid');
+var validator = require('is-my-json-valid');
 
 
 
@@ -120,11 +119,40 @@ var getParentPath = function(path) {
     return path.replace(/(\.[^.]+$)/, '');
 };
 
+var modelRowToHelpLine = function(value) {
+    var noTitle = S(value.title).isEmpty();
+    var noDesc = S(value.description).isEmpty();
+
+    var helpLine = asPropertyKey(value.path) + " (" + value.type + ")";
+    if (noTitle && noDesc) {
+        return helpLine;
+    }
+
+    helpLine += ":";
+
+    if (!noTitle) {
+        var title = " " + S(value.title).capitalize().trim().ensureRight('.').s;
+        helpLine += title;
+
+    }
+
+    if (!noDesc) {
+        var desc = " " + S(value.description).capitalize().trim().ensureRight('.').s;
+        helpLine += desc;
+    }
+
+    return helpLine;
+};
+
 module.exports = function(config) {
     Joi.assert(config, confSchema);
     var schema = loadSchema(config.schema);
     var pathsFound = {};
     walkPaths(schema, pathsFound, []);
+
+    var modelHelp = function() {
+        return _.map(_.values(pathsFound), modelRowToHelpLine).sort();
+    };
 
     var idPathValid = function(path) {
         var isSyntaxCorrect = (!isStringProvided(path)) || (path.indexOf('[]') >= 0);
@@ -336,7 +364,7 @@ module.exports = function(config) {
             return new Error('Source type is different from destination type: ' + typeSrc + ' and ' + typeDest);
         }
 
-        setValue(jsonData, pathDest, src);
+        return setValue(jsonData, pathDest, src);
     };
 
     var deleteValue = function(jsonData, path) {
@@ -354,12 +382,83 @@ module.exports = function(config) {
                 var childPath = S(path).chompLeft(parentPath + ".");
                 delete parentVal[childPath];
             } else if (parentType === 'array') {
-                var idx = S(path).chompLeft(parentPath).between('[',']').toInt();
-                _.pullAt(parentVal,idx);
+                var idx = S(path).chompLeft(parentPath).between('[', ']').toInt();
+                _.pullAt(parentVal, idx);
             }
 
 
         }
+
+        return jsonData;
+
+    };
+    var validate = validator(schema);
+
+    var check = function(jsonData) {
+        var validation = validate(jsonData);
+        return validation ? "valid" : "invalid";
+    };
+
+    var validActions = ['get', 'set', 'copy', 'insert', 'del', 'all', 'schema', 'check', 'help'];
+    var actionValidators = {
+        'get': Joi.array(Joi.string()).length(2),
+        'set': Joi.array(Joi.string()).length(3),
+        'copy': Joi.array(Joi.string()).length(3),
+        'insert': Joi.array(Joi.string()).length(3),
+        'del': Joi.array(Joi.string()).length(2),
+        'all': Joi.array(Joi.string()).length(1),
+        'check': Joi.array(Joi.string()).length(1),
+        'schema': Joi.array(Joi.string()).length(1),
+        'help': Joi.array(Joi.string()).length(1)
+
+    };
+    var helpCommands = [
+        "all: get the whole configuration",
+        "check: validate the configuration",
+        "get: get the value at the given path. Eg: get " + _.keys(pathsFound)[0],
+        "set: set the value at the given path. Eg: set " + _.keys(pathsFound)[1] + " value",
+        "copy: copy a value between two paths. Eg: copy " + _.keys(pathsFound)[0] + " " + _.keys(pathsFound)[1],
+        "insert: insert a blank row",
+        "del: delete the value at the given path. Eg: del " + _.keys(pathsFound)[0],
+        "schema: display the schema with all the possible paths",
+        "help: display the help you are reading now"
+    ].sort();
+    var evaluate = function(jsonData, args) {
+        Joi.assert(jsonData, Joi.object());
+        Joi.assert(args, Joi.array(Joi.string()).min(1));
+
+        var action = args[0];
+        var actionCheck = Joi.validate(action, Joi.string().valid(validActions));
+
+        if (!_.isNull(actionCheck.error)) {
+            return new Error('Available actions are ' + validActions);
+        }
+        var incorrectLength = Joi.validate(args, actionValidators[action]).error;
+        if (!_.isNull(incorrectLength)) {
+            return incorrectLength;
+        }
+
+
+        if (action === 'get') {
+            return getValue(jsonData, args[1]);
+        } else if (action === 'set') {
+            return setValue(jsonData, args[1], args[2]);
+        } else if (action === 'copy') {
+            return copyValue(jsonData, args[1], args[2]);
+        } else if (action === 'insert') {
+            return insertRow(jsonData, args[1], args[2]);
+        } else if (action === 'del') {
+            return deleteValue(jsonData, args[1]);
+        } else if (action === 'schema') {
+            return modelHelp();
+        } else if (action === 'help') {
+            return helpCommands;
+        } else if (action === 'all') {
+            return jsonData;
+        } else if (action === 'check') {
+            return check(jsonData);
+        }
+
 
     };
 
@@ -370,6 +469,7 @@ module.exports = function(config) {
         model: function() {
             return _.clone(pathsFound);
         },
+        modelHelp: modelHelp,
         isPathValid: idPathValid,
         isValueValid: isValueValid,
         getParentPath: getParentPath,
@@ -377,7 +477,9 @@ module.exports = function(config) {
         setValue: setValue,
         insertRow: insertRow,
         copyValue: copyValue,
-        deleteValue: deleteValue
+        deleteValue: deleteValue,
+        check: check,
+        evaluate: evaluate
     };
 
     return commander;
