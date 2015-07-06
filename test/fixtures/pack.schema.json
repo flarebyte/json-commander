@@ -19,6 +19,8 @@
     },
     "homepage": {
       "id": "homepage",
+      "title": "Homepage the library",
+      "description": "The homepage contains additional documentation useful for the use of the library",
       "type": "string"
     },
     "icon": {
