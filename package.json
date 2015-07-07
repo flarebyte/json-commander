@@ -14,7 +14,8 @@
   "keywords": [
     "json-commander",
     "json",
-    "json-schema"
+    "json-schema",
+    "command"
   ],
   "dependencies": {
     "fs-extra": "^0.20.0",
