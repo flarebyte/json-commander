@@ -1,6 +1,6 @@
 {
   "name": "json-commander",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Commands generator for the update of json documents",
   "author": {
     "name": "Olivier Huin",
