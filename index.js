@@ -9,6 +9,7 @@ var validator = require('is-my-json-valid');
 
 var confSchema = Joi.object().keys({
     schema: [Joi.string().min(2).description('json-schema file path'), Joi.object().description('json-schema content')],
+    tableFriendly: Joi.boolean().description('Output for help command is a list of records when true')
 });
 
 var isSchemaFile = function(value) {
@@ -17,6 +18,10 @@ var isSchemaFile = function(value) {
 
 var isSchemaContent = function(value) {
     return _.isPlainObject(value);
+};
+
+var recordAsString = function(value) {
+  return [value.name, value.description].join(': ');
 };
 
 var loadSchema = function(value) {
@@ -119,29 +124,29 @@ var getParentPath = function(path) {
     return path.replace(/(\.[^.]+$)/, '');
 };
 
-var modelRowToHelpLine = function(value) {
+var modelRowToHelpLineRecord = function(value) {
     var noTitle = S(value.title).isEmpty();
     var noDesc = S(value.description).isEmpty();
 
-    var helpLine = asPropertyKey(value.path) + " (" + value.type + ")";
+    var name = asPropertyKey(value.path) + " (" + value.type + ")";
     if (noTitle && noDesc) {
-        return helpLine;
+        return {
+          name: name,
+          description: ""
+        };
     }
+    var title = noTitle ? "" : S(value.title).capitalize().trim().ensureRight('.').s;
+    var desc = noDesc ? "" : S(value.description).capitalize().trim().ensureRight('.').s;
+    var description = S([title, desc].join(' ')).trim().s;
+    return {
+      name: name,
+      description: description
+    };
+};
 
-    helpLine += ":";
-
-    if (!noTitle) {
-        var title = " " + S(value.title).capitalize().trim().ensureRight('.').s;
-        helpLine += title;
-
-    }
-
-    if (!noDesc) {
-        var desc = " " + S(value.description).capitalize().trim().ensureRight('.').s;
-        helpLine += desc;
-    }
-
-    return helpLine;
+var modelRowToHelpLine = function(value) {
+    var row = modelRowToHelpLineRecord(value);
+    return S(row.description).isEmpty() ? row.name : [row.name, row.description].join(': ');
 };
 
 module.exports = function(config) {
@@ -151,7 +156,8 @@ module.exports = function(config) {
     walkPaths(schema, pathsFound, []);
 
     var modelHelp = function() {
-        return _.map(_.values(pathsFound), modelRowToHelpLine).sort();
+        return config.tableFriendly ? _.sortBy(_.map(_.values(pathsFound), modelRowToHelpLineRecord), 'name') :
+         _.map(_.values(pathsFound), modelRowToHelpLine).sort();
     };
 
     var idPathValid = function(path) {
@@ -412,17 +418,22 @@ module.exports = function(config) {
         'help': Joi.array(Joi.string()).length(1)
 
     };
-    var helpCommands = [
-        "all: get the whole configuration",
-        "check: validate the configuration",
-        "get: get the value at the given path. Eg: get " + _.keys(pathsFound)[0],
-        "set: set the value at the given path. Eg: set " + _.keys(pathsFound)[1] + " value",
-        "copy: copy a value between two paths. Eg: copy " + _.keys(pathsFound)[0] + " " + _.keys(pathsFound)[1],
-        "insert: insert a blank row",
-        "del: delete the value at the given path. Eg: del " + _.keys(pathsFound)[0],
-        "schema: display the schema with all the possible paths",
-        "help: display the help you are reading now"
-    ].sort();
+
+    var helpCommandRecords = [
+      {name: "all", description: "get the whole configuration"},
+      {name: "check", description: "validate the configuration"},
+      {name: "copy", description: "copy a value between two paths. Eg: copy " + _.keys(pathsFound)[0] + " " + _.keys(pathsFound)[1]},
+      {name: "del", description: "delete the value at the given path. Eg: del " + _.keys(pathsFound)[0]},
+      {name: "get", description: "get the value at the given path. Eg: get " + _.keys(pathsFound)[0]},
+      {name: "help", description: "display the help you are reading now"},
+      {name: "insert", description: "insert a blank row"},
+      {name: "schema", description: "display the schema with all the possible paths"},
+      {name: "set", description: "set the value at the given path. Eg: set " + _.keys(pathsFound)[1] + " value"}
+    ];
+
+
+    var helpCommands = _.map(helpCommandRecords, recordAsString);
+
     var evaluate = function(jsonData, args) {
         Joi.assert(jsonData, Joi.object());
         Joi.assert(args, Joi.array(Joi.string()).min(1));
@@ -452,7 +463,7 @@ module.exports = function(config) {
         } else if (action === 'schema') {
             return modelHelp();
         } else if (action === 'help') {
-            return helpCommands;
+            return config.tableFriendly ? helpCommandRecords: helpCommands;
         } else if (action === 'all') {
             return jsonData;
         } else if (action === 'check') {
