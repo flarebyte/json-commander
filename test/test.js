@@ -9,6 +9,11 @@ var basicConf = {
     schema: __dirname + "/fixtures/pack.schema.json"
 };
 
+var conf4Table = {
+    schema: __dirname + "/fixtures/pack.schema.json",
+    tableFriendly: true
+};
+
 
 var lodashExample = fs.readJsonSync(__dirname + "/fixtures/lodash.json");
 
@@ -275,8 +280,21 @@ describe('json-commander node module', function() {
         assert.equal(cmdr.evaluate(ex, ['all']), ex);
         assert.equal(cmdr.evaluate(ex, ['help'])[0], 'all: get the whole configuration');
 
-
+        assert.equal(cmdr.evaluate(ex, ['schema'])[1], 'anyInteger (integer)');
+        assert.equal(cmdr.evaluate(ex, ['schema'])[11], 'contributors[].url (string)');
+        assert.equal(cmdr.evaluate(ex, ['schema'])[25], 'version (string): Version of the library.');
     });
 
+    it('must evaluate commands in a table friendly manner', function() {
+        var cmdr = jsonCommander(conf4Table);
+        var ex = newExample();
+        isNotError(cmdr.evaluate(ex, ['schema']));
+        isNotError(cmdr.evaluate(ex, ['help']));
+        assert.deepEqual(cmdr.evaluate(ex, ['help'])[0], {name: 'all', description: 'get the whole configuration'});
+
+        assert.deepEqual(cmdr.evaluate(ex, ['schema'])[1], {name: 'anyInteger (integer)', description: ''});
+        assert.deepEqual(cmdr.evaluate(ex, ['schema'])[11], {name: 'contributors[].url (string)', description: ''});
+        assert.deepEqual(cmdr.evaluate(ex, ['schema'])[25], {name: 'version (string)', description: 'Version of the library.'});
+    });
 
 });
