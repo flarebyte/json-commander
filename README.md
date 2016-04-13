@@ -2,8 +2,12 @@
 
 > Commands generator for the update of json documents
 
-This library provides some commands for manipulating a json configuration file. 
+This library provides some commands for manipulating a json configuration file.
 This configuration file must respect a json-schema.
+
+Because json-commander is aware of the schema, it is able to provide a smart assistance which can be pretty handy if you are implementing a CLI.
+
+You can find at the bottom of this documentation, an example using the commander package, but json-commander is not tied to any specific CLI library.
 
 ## Install
 
@@ -115,6 +119,46 @@ Display the schema with all the possible paths.
 ```js
 	cmdr.evaluate(someJson, ['schema']);
 	//Will display the schema
+```
+
+### Creating a CLI
+
+Json-commander can easily used to create a CLI.
+
+Requires:
+[commander](https://www.npmjs.com/package/commander)
+[solace](https://www.npmjs.com/package/solace)
+[confiture](https://www.npmjs.com/package/confiture)
+
+The setup program:
+```js
+import solaceCreator from 'solace';
+import confiture from 'confiture';
+
+const solace = solaceCreator({});
+const configurator = confiture({/*check doc*/});
+
+const setupProgram = (cmd, other) => {
+    const hasOther = !_.isEmpty(other);
+    const cmdOptions = hasOther ? [cmd].concat(other) : [cmd];
+    const isWriting = cmd === 'set' || cmd === 'copy' || cmd === 'del' || cmd === 'insert';
+    if (isWriting) {
+      cmdr.evaluate(unalteredConf, cmdOptions);
+      configurator.saveSync(unalteredConf);
+      solace.log(`${cmd} done.`);
+    } else {
+      const evaluation = cmdr.evaluate(unalteredConf, cmdOptions);
+      solace.log(evaluation);
+    }
+  };
+```
+
+With commander to provide a CLI:
+```js
+import program from 'commander';
+program.command('setup <cmd> [other...]')
+  .description('configure My CLI')
+  .action(setupProgram);
 ```
 
 
